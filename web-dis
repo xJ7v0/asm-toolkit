@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# TODO: use radare2 or write a wrapper for libcapstone in C
+
+# Testing for options and parameters
+# So we can setup defaults
+
+#VAR=${1:-test}
+
+#echo $VAR
+
+
+if [ "$1" == "-l" ] || [ "$1" == "-b" ]; then
+
+	ARCH="-x64"
+
+elif [[ "$1" == %* ]]; then
+
+	ARCH="-x64"
+	MODIFIER="$1"
+else
+	ARCH="$1"
+
+fi
+
+if [ "$1" == "-l" ] || [ "$1" == "-b" ]; then
+	ENDIANNESS="$1"
+
+elif [[ "$2" != "-l" ]] && [[ "$2" != "-b" ]]; then
+	ENDIANNESS="-l"
+else
+	ENDIANNESS="$2"
+
+fi
+
+if [[ "$2" == %* ]]; then
+	MODIFIER="$2"
+
+elif [[ "$3" == %* ]]; then
+	MODIFIER="$3"
+fi
+
+EXPRESSION=$(echo "$@" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
+
+usage() {
+	echo "$(basename $0): hex/opcodes/raw web disassembler
+
+Usage: $(basename $0) [-arm,-thumb,-aarch64,-m32,-m64,-ppc32,-ppc64,-sparc,-x16,-x32,x64] [-l,-b] [%r,%x] [expression]
+ARCH:
+	-arm:		armel 32 bit
+	-thumb:		armel 32 bit with thumb extensions
+	-aarch64:	armel 64 bit
+	-m32:		mips  32 bit
+	-m64:		mips  64 bit
+	-ppc32:		ppc   32 bit
+	-ppc64:		ppc   64 bit
+	-sparc:		sparc
+	-x16:		x86   16 bit
+	-x32:		x86   32 bit
+	-x64:		x86   64 bit
+
+ENDIANNESS:
+
+	-l		Little endian
+	-b		Big endian
+
+INPUT:
+	%r	input raw
+	%o	input opcodes
+	%x	input hexadecimal
+
+
+DEFAULTS:
+
+	If no arch is supplied, then use x86_64
+
+	If no endianess is supplied then use little endian
+
+CAVEATS:
+
+	When using the %o (opcodes) modifier, wrap your input with ' or \"
+
+
+Site: http://shell-storm.org/online/Online-Assembler-and-Disassembler"
+
+}
+
+IN_RAW() {
+	CONV="$(echo -n ${EXPRESSION} | xxd -c256 -p - | sed 's/^[ \t]*//;s/[ \t]*$//' | sed -e 's/.\{2\}/&\\x/g' -e 's/\(.*\)\\x/\1/')"
+	DUMP
+}
+
+IN_OPCODES() {
+	CONV="$(echo ${EXPRESSION} | sed 's/^[ \t]*//;s/[ \t]*$//')"
+	DUMP
+}
+
+IN_HEX() {
+	CONV="\x$(echo ${EXPRESSION} | sed -e 's/.\{2\}/&\\x/g' -e 's/\(.*\)\\x/\1/')"
+	DUMP
+}
+
+DUMP() {
+
+	wget -O - "http://shell-storm.org/online/Online-Assembler-and-Disassembler/?opcodes=${CONV}&arch=${ARCH}&endianness=${ENDIANNESS}#disassembly" 2>&1 |\
+	grep -o -P '(?<=<h4>Disassembly</h4><pre>).*(?=</pre></div>)' | sed 's/<\/br>/\n/g'
+
+}
+
+case "${ARCH}" in
+	"-arm")
+		ARCH="arm";;
+
+	"-thumb")
+		ARCH="arm-t";;
+
+	"-aarch64")
+		ARCH="arm64";;
+
+	"-m32")
+		ARCH="mips32";;
+
+	"-m64")
+		ARCH="mips64";;
+
+	"-ppc32")
+		ARCH="ppc32";;
+
+	"-ppc64")
+		ARCH="ppc64";;
+
+	"-sparc")
+		ARCH="sparc";;
+
+	"-x16")
+		ARCH="x86-16";;
+
+	"-x32")
+		ARCH="x86-32";;
+
+	"-x64")
+		ARCH="x86-64";;
+
+	*)
+		ARCH="x86-64";;
+
+esac
+
+case "${ENDIANNESS}" in
+	"-l")
+		ENDIANNESS="little";;
+
+	"-b")
+		ENDIANNESS="big";;
+
+	*)
+		ENDIANNESS="little";;
+esac
+
+case "${MODIFIER}" in
+	"%r")
+		#EXPRESSION=$(echo "${ALL_OPTS}" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
+		IN_RAW
+		exit 0
+	;;
+	"%o")
+		#EXPRESSION=$(echo "${ALL_OPTS}" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
+		IN_OPCODES
+		exit 0
+
+	;;
+	"%x")
+		#EXPRESSION=$(echo "${ALL_OPTS}" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
+		IN_HEX
+		exit 0
+	;;
+	*)
+		usage
+		exit 1
+	;;
+esac
