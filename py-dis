@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # TODO: use radare2 or write a wrapper for libcapstone in C
-
 # Testing for options and parameters
 # So we can setup defaults
+# need to fix ugly cruft
 
 #VAR=${1:-test}
-
 #echo $VAR
 
 if [ "$1" == "-l" ] || [ "$1" == "-b" ]; then
@@ -15,7 +14,7 @@ if [ "$1" == "-l" ] || [ "$1" == "-b" ]; then
 elif [[ "$1" == %* ]]; then
 
 	ARCH="-x64"
-	MODIFIER="$1"
+	INPUT="$1"
 else
 	ARCH="$1"
 
@@ -32,15 +31,17 @@ else
 fi
 
 if [[ "$2" == %* ]]; then
-	MODIFIER="$2"
+	INPUT="$2"
 
 elif [[ "$3" == %* ]]; then
-	MODIFIER="$3"
+	INPUT="$3"
 fi
 
-EXPRESSION=$(echo "$@" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
+if [ ! -z ${ARCH} ] || [ ! -z ${INPUT} ]; then
+	EXPRESSION=$(echo "$@" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${INPUT}//")
+fi
 
-usage() {
+USAGE() {
 	echo "$(basename $0): hex/opcodes/raw web disassembler
 
 Usage: $(basename $0) [-arm,-thumb,-aarch64,-m32,-m64,-ppc32,-ppc64,-sparc,-x16,-x32,x64] [-l,-b] [%r,%x] [expression]
@@ -178,7 +179,7 @@ case "${ENDIANNESS}" in
 		ENDIANNESS="little";;
 esac
 
-case "${MODIFIER}" in
+case "${INPUT}" in
 	"%r")
 		#EXPRESSION=$(echo "${ALL_OPTS}" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
 		IN_RAW
@@ -196,7 +197,7 @@ case "${MODIFIER}" in
 		exit 0
 	;;
 	*)
-		usage
+		USAGE
 		exit 1
 	;;
 esac
