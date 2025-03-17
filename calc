@@ -1,14 +1,87 @@
 #!/bin/bash
 
+function floor()
+{
+	float=$1
+	[[ $float == *"."* ]] && fraction=$((${float/*.}))
+	floor_val=${float/.*}
+
+	#			 check if neg	check if frac exists
+	[[ $float > $floor_val && $float == "-"* && $fraction != 0 ]] && floor_val=$(($floor_val-1))
+	echo $floor_val
+}
+
+
+magic_division_number()
+{
+	delta=0
+	BITS=32
+	div_bug=$(( (( (1 << $BITS) - 1) & "$1") ))
+	div=$1
+	bitlow=$((1<<($BITS-1)))
+	bithi=$((1<<$BITS))
+
+	if [[ $(($div >= $bithi)) == 1 || $(($div < -$bitlow)) == 1 ]]; then
+		echo "out of range:" $div
+		return 1
+	fi
+
+	if [[ $(($div >= $bitlow)) == 1 ]]; then
+		div=$(($div-$bithi))
+	fi
+
+	# absolute
+	abs_d=${div/-}
+
+	let t="$bitlow + ($div_bug >> ($BITS - 1))"
+	let abs_nc="($t - 1) - ($t % $abs_d)"
+
+	p=$(($BITS-1))
+	# quotients
+	q1=$(floor $(($bitlow/$abs_nc)))
+	q2=$(floor $(($bitlow/$abs_d)))
+	# remainders
+	r1=$(($bitlow - $q1*$abs_nc))
+	r2=$(($bitlow - $q2*$abs_d))
+
+	while true; do
+
+		let p++
+		let q1="$q1<<1"
+		let q2="$q2<<1"
+		let r1="$r1<<1"
+		let r2="$r2<<1"
+
+		[[ $(($r1 >= $abs_nc)) == 1 ]] && let q1++ && let r1="$r1 - $abs_nc"
+
+		[[ $(($r2 >= $abs_d))  == 1 ]] && let q2++ && let r2="$r2 - $abs_d"
+
+		let delta="$abs_d - $r2"
+
+		[[ $(($q1 < $delta)) == 1 ]] && break
+		[[ $(($q1 == $delta)) == 1 && $(($r1 == 0)) == 1  ]] && break
+	done
+
+	let magic="$q2 + 1"
+	[[ $div == "-"* ]] && magic=$(($bithi - $magic))
+
+	let shift="$p - $BITS"
+	echo "magic signed division: $magic
+	 shift amount: $shift"
+}
+
+
 MODIFIER=$1
 EXPRESSION=$2
 if [[ $# == 0 ]]; then
-	echo "$(basename $0): int/hex/oct/bin conversion and math script
+	echo "$(basename $0): int/hex/oct/bin conversion and magic division number
 Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %d    print result in decimal
     %x    print result in hexadecimal
     %o    print result in octal
-    %b    print result in binary"
+    %b    print result in binary
+    %ms   print magic number for fast signed division
+"
 	exit 1
 
 elif [[ $# == 1 ]]; then
@@ -16,10 +89,11 @@ elif [[ $# == 1 ]]; then
 	python -c "print(f'{int("$EXPRESSION")}	{hex("$EXPRESSION")}	{oct("$EXPRESSION")}	{bin("$EXPRESSION")}')"
 else
 	case "$MODIFIER" in
-		"%d")python -c "print(int("$EXPRESSION"))";;
-		"%x")python -c "print(hex("$EXPRESSION"))";;
-		"%o")python -c "print(oct("$EXPRESSION"))";;
-		"%b")python -c "print(bin("$EXPRESSION"))";;
+		"%d") python -c "print(int("$EXPRESSION"))";;
+		"%x") python -c "print(hex("$EXPRESSION"))";;
+		"%o") python -c "print(oct("$EXPRESSION"))";;
+		"%b") python -c "print(bin("$EXPRESSION"))";;
+		"%ms") magic_division_number $EXPRESSION;;
 	esac
 fi
 
