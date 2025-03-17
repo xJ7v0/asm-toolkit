@@ -1,0 +1,26 @@
+#!/bin/bash
+
+MODIFIER=$1
+EXPRESSION=$2
+if [[ $# == 0 ]]; then
+	echo "$(basename $0): int/hex/oct/bin conversion and math script
+Usage: $(basename $0) [%d,%x,%o,%b] [expression]
+    %d    print result in decimal
+    %x    print result in hexadecimal
+    %o    print result in octal
+    %b    print result in binary"
+	exit 1
+
+elif [[ $# == 1 ]]; then
+	EXPRESSION=$MODIFIER
+	python -c "print(f'{int("$EXPRESSION")}	{hex("$EXPRESSION")}	{oct("$EXPRESSION")}	{bin("$EXPRESSION")}')"
+else
+	case "$MODIFIER" in
+		"%d")python -c "print(int("$EXPRESSION"))";;
+		"%x")python -c "print(hex("$EXPRESSION"))";;
+		"%o")python -c "print(oct("$EXPRESSION"))";;
+		"%b")python -c "print(bin("$EXPRESSION"))";;
+	esac
+fi
+
+exit $?
