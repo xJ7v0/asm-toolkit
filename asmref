@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# TODO show registers used
+# https://filippo.io/linux-syscall-table/
+
+OLD_IFS=$IFS
+IFS=$'\n'
+HEADER="/usr/src/linux/include/linux/syscalls.h"
+CALL_STR="asmlinkage long sys_"
+pipe=/tmp/testpipe
+INSTRUCTIONS_FILE="share/asm-toolkit/instructions"
+#UNISTD="/usr/include/asm/unistd_${1}.h"
+#REG32=( EAX: EBX: ECX: EDX: ESX: EDI: )
+#REG64=( RDI RSI RDX R10 R8 R9 )
+
+C_Function() {
+	IFS=$'\n'
+
+	[[ ${1} == 32 ]] && REG_NUM="EAX:" || REG_NUM="RAX:"
+
+	# Could be merged into one
+	if [ ! "${2}" ]; then
+		SYS_CALL="$(grep \#define /usr/include/asm/unistd_${1}.h | cut -d _ -f 4- | sed 's@\(^.*\) \(.*\)@\2 = \1@')"
+	else
+		SYS_CALL="$(grep \#define /usr/include/asm/unistd_${1}.h | cut -d _ -f 4- | sed 's@\(^.*\) \(.*\)@\2 = \1@' | grep -i ${2})"
+	fi
+
+
+	for i in ${SYS_CALL}; do
+		FUNC_NAME=$(echo ${i} | cut -d "=" -f2 | tr -d [:space:])
+		# [[:alpha:]] is used because of certain systems can lack language configuration
+		#FUNCTION=$(grep -A10 ${CALL_STR} "${HEADER}" | sed -e 's/^[ \t]*//' | sed -e ':a;N;$!ba;s/,\n/, /g' -e 's/__[a-Z]* //g' | grep -Po "(?<=${CALL_STR}${FUNC_NAME})(?=\().*(?=;)")
+		FUNCTION=$(grep -A10 ${CALL_STR} "${HEADER}" | sed -e 's/^[ \t]*//' | sed -e ':a;N;$!ba;s/,\n/, /g' -e 's/__[[:alpha:]]* //g' | grep -Po "(?<=${CALL_STR}${FUNC_NAME})(?=\().*(?=;)")
+		# Remove echo .. | cut recursion
+		# Also remove decimal notation. or add a config option to choose
+		#echo "${REG_NUM} $(printf '0x%x\n' $(echo ${i} | cut -d ' ' -f1)) ${i} ${FUNCTION}"
+		echo "${REG_NUM} ${i} ${FUNCTION}"
+
+		if [ ${FUNCTION} ]; then
+			Registers ${1} ${FUNCTION}
+			echo -e "\n"
+		fi
+	done
+        IFS=${OLD_IFS}
+}
+
+ASM_Instructions() {
+	#test_arr=( "Option 1)" "echo you chose choice 1" ";;" )
+	[[ "${1}" ]] && grep -i "${1}" ${INSTRUCTIONS_FILE} || cat ${INSTRUCTIONS_FILE}
+	#	PS3='Please enter your choice: '
+	#	options=("Option 1" "Option 2" "Option 3" "Quit")
+	#	select opt in "${options[@]}"; do
+	#		case $opt in
+	#			${test_arr[@]}
+	#			*) echo invalid option;;
+	#		esac
+	#	done
+	#exit $?
+}
+
+
+Registers() {
+	FUNC_CLEAN="$( echo ${2} | sed -e 's/(/ /' -e 's/)//' )"
+
+	IFS=","
+	c=0
+
+	if [ ${1} == "32" ]; then
+		REG=( EBX: ECX: EDX: ESI: EDI: )
+	else
+		REG=( RDI: RSI: RDX: R10: R8: R9: )
+	fi
+
+	for i in ${FUNC_CLEAN}; do
+		echo -ne "${REG[$c]}${i}\t"
+		c=$[$c+1]
+	done
+
+	IFS=$'\n'
+	#${REG[$c]}
+	#${!var}
+}
+
+OPEN_LINKS() {
+
+	URL="http://www.felixcloutier.com/x86/"
+	HTML=$(wget -q -O - "${URL}" | grep -Po '(?<=a href="./).*(?=</a>)' | grep -ai ">${1}$" | cut -d \" -f1)
+	[[ $(grep -io ${1} ${INSTRUCTIONS_FILE}) ]] \
+	&& links -dump "${URL}${HTML}" | less || echo "Not a x86 valid instruction, search for it first"
+}
+
+FIFO_PARSER() {
+
+	trap "rm -f $pipe" exit
+
+	if [[ ! -p $pipe ]]; then
+		mkfifo $pipe
+	fi
+
+	while true; do
+		if read line < $pipe; then
+			if [ ! "$PREVIOUS_CMD" == "$line" ]; then
+				clear
+				C_Function $1 "$line"
+				PREVIOUS_CMD="$line"
+			fi
+		fi
+	done
+
+	exit $?
+}
+
+case ${1} in
+	"-64")
+		C_Function 64 "${2}"
+		exit $?
+	;;
+	"-32")
+		C_Function 32 "${2}"
+		exit $?
+	;;
+	"-i")
+		ASM_Instructions "${2}"
+	;;
+	"-std32")
+		FIFO_PARSER 32
+	;;
+	"-std64")
+		FIFO_PARSER 64
+	;;
+	"-www")
+		OPEN_LINKS "${2}"
+	;;
+	*)
+		echo "Usage: $(basename $0) [option] [arg]
+		-64	lists all 64 bit system calls or looks for [arg]
+		-32	lists all 32 bit system calls or looks for [arg]
+		-i	lists all instructions or looks for [arg]
+		-std64	listens on a named pipe (${pipe}) 64 bit calls
+		-std32	listens on a named pipe (${pipe}) 32 bit calls
+		-www	opens the proper webpage in links, very literal!"
+		exit 1
+	;;
+esac
+
