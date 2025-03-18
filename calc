@@ -21,17 +21,32 @@ magic_division_number()
 	bitlow=$((1<<($BITS-1)))
 	bithi=$((1<<$BITS))
 
-	if [[ $(($div >= $bithi)) == 1 || $(($div < -$bitlow)) == 1 ]]; then
-		echo "out of range:" $div
-		return 1
+	if [[ -z $2 ]]; then
+		# signed
+		if [[ $(($div >= $bithi)) == 1 || $(($div < -$bitlow)) == 1 ]]; then
+			echo "out of range:" $div
+			return 1
+		fi
+	else
+		# unsinged
+		if [[ $div -ge $bithi || $div -lt 0 ]]; then
+			echo "out of range:" $div
+			return 1
+		fi
 	fi
 
-	if [[ $(($div >= $bitlow)) == 1 ]]; then
-		div=$(($div-$bithi))
+	if [[ -z $2 ]]; then
+		if [[ $(($div >= $bitlow)) == 1 ]]; then
+			div=$(($div-$bithi))
+		fi
 	fi
 
-	# absolute
-	abs_d=${div/-}
+	if [[ -z $2 ]]; then
+		# absolute
+		abs_d=${div/-}
+	else
+		abs_d=$div
+	fi
 
 	let t="$bitlow + ($div_bug >> ($BITS - 1))"
 	let abs_nc="($t - 1) - ($t % $abs_d)"
@@ -53,7 +68,6 @@ magic_division_number()
 		let r2="$r2<<1"
 
 		[[ $(($r1 >= $abs_nc)) == 1 ]] && let q1++ && let r1="$r1 - $abs_nc"
-
 		[[ $(($r2 >= $abs_d))  == 1 ]] && let q2++ && let r2="$r2 - $abs_d"
 
 		let delta="$abs_d - $r2"
@@ -63,11 +77,22 @@ magic_division_number()
 	done
 
 	let magic="$q2 + 1"
-	[[ $div == "-"* ]] && magic=$(($bithi - $magic))
+	if [[ -z $2 ]] ;then
+		[[ $div == "-"* ]] && magic=$(($bithi - $magic))
+	fi
 
 	let shift="$p - $BITS"
-	echo "magic signed division: $magic
-	 shift amount: $shift"
+
+	if [[ -z $2 ]]; then
+
+		echo "magic signed division: $magic"
+		echo "	       shift amount: $shift"
+	else
+
+		echo "magic unsigned division: $magic"
+		echo "		 shift amount: $shift"
+
+	fi
 }
 
 
@@ -94,6 +119,7 @@ else
 		"%o") python -c "print(oct("$EXPRESSION"))";;
 		"%b") python -c "print(bin("$EXPRESSION"))";;
 		"%ms") magic_division_number $EXPRESSION;;
+		"%mu") magic_division_number $EXPRESSION unsigned;;
 	esac
 fi
 
