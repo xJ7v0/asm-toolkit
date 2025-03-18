@@ -39,7 +39,7 @@ elif [[ "$3" == %* ]]; then
 	MODIFIER="$3"
 fi
 
-EXPRESSION=$(echo "$@" | sed -e "s/${ARCH}//" -e "s/${ENDIANNESS}//" -e  "s/${MODIFIER}//")
+EXPRESSION=$(echo "$@" | sed -e "s/$ARCH//" -e "s/$ENDIANNESS//" -e  "s/$MODIFIER//")
 
 usage() {
 	echo "$(basename $0): hex/opcodes/raw web disassembler
