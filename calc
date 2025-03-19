@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# ascii to hex
+function atoh() { echo -n "$@" | xxd -c4 -; echo; }
+
+# hex to ascii
+function htoa() { echo -n "0 " "$@" | xxd -r -; echo; }
+
 function floor()
 {
 	float=$1
@@ -86,18 +92,20 @@ magic_division_number()
 	if [[ -z $2 ]]; then
 
 		echo "magic signed division: $magic"
-		echo "	       shift amount: $shift"
+		echo "	 shift amount: $shift"
 	else
 
 		echo "magic unsigned division: $magic"
-		echo "		 shift amount: $shift"
+		echo "	   shift amount: $shift"
 
 	fi
 }
 
 
 MODIFIER=$1
-EXPRESSION=$2
+
+[[ -z $BITS ]] && BITS=64
+
 if [[ $# == 0 ]]; then
 	echo "$(basename $0): int/hex/oct/bin conversion and magic division number
 Usage: $(basename $0) [%d,%x,%o,%b] [expression]
@@ -105,22 +113,34 @@ Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %x    print result in hexadecimal
     %o    print result in octal
     %b    print result in binary
+
+    %sb   print result in signed binary
+    %sx   print result in signed hexadecimal"
+
     %ms   print magic number for fast signed division
+    %mu   print magic number for fast unsigned division
+
+    %atoh print ascii to hex
+    %htoa print hex to ascii
 "
 	exit 1
-
-elif [[ $# == 1 ]]; then
-	EXPRESSION=$MODIFIER
-	python -c "print(f'{int("$EXPRESSION")}	{hex("$EXPRESSION")}	{oct("$EXPRESSION")}	{bin("$EXPRESSION")}')"
-else
-	case "$MODIFIER" in
-		"%d") python -c "print(int("$EXPRESSION"))";;
-		"%x") python -c "print(hex("$EXPRESSION"))";;
-		"%o") python -c "print(oct("$EXPRESSION"))";;
-		"%b") python -c "print(bin("$EXPRESSION"))";;
-		"%ms") magic_division_number $EXPRESSION;;
-		"%mu") magic_division_number $EXPRESSION unsigned;;
-	esac
 fi
+
+case "$MODIFIER" in
+	"%d") shift; a="$@"; python -c "print(int($a))";;
+	"%x") shift; a="$@"; python -c "print(hex($a))";;
+	"%o") shift; a="$@"; python -c "print(oct($a))";;
+	"%b") shift; a="$@"; python -c "print(bin($a))";;
+	"%sx")shift; a="$@"; python -c "print(hex(((1 << $BITS)-1) & $a))";;
+	"%sb")shift; a="$@"; python -c "print(bin(((1 << $BITS)-1) & $a))";;
+
+	"%ms") shift; a="$@"; magic_division_number `python -c "print(int($a))"`;;
+	"%mu") shift; a="$@"; magic_division_number `python -c "print(int($a))"` unsigned;;
+
+	"%atoh") shift; a="$@"; atoh "$a";;
+	"%htoa") shift; a="$@"; htoa `python -c "print(hex($a))"`;;
+
+	*) a="$@"; python -c "print(f'{int($a)}	{hex($a)}	{oct($a)}	{bin($a)}')";;
+esac
 
 exit $?
