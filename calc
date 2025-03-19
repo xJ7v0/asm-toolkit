@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # ascii to hex
-function atoh() { echo -n "$@" | xxd -c4 -; echo; }
+atoh() { echo -n "$@" | xxd -c4 -; echo; }
 
 # hex to ascii
-function htoa() { echo -n "0 " "$@" | xxd -r -; echo; }
+htoa() { echo -n "0 " "$@" | xxd -r -; echo; }
 
-function floor()
+floor()
 {
 	float=$1
 	[[ $float == *"."* ]] && fraction=$((${float/*.}))
@@ -101,12 +101,8 @@ magic_division_number()
 	fi
 }
 
-
-MODIFIER=$1
-
-[[ -z $BITS ]] && BITS=64
-
-if [[ $# == 0 ]]; then
+usage()
+{
 	echo "$(basename $0): int/hex/oct/bin conversion and magic division number
 Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %d    print result in decimal
@@ -115,7 +111,7 @@ Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %b    print result in binary
 
     %sb   print result in signed binary
-    %sx   print result in signed hexadecimal"
+    %sx   print result in signed hexadecimal
 
     %ms   print magic number for fast signed division
     %mu   print magic number for fast unsigned division
@@ -124,9 +120,23 @@ Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %htoa print hex to ascii
 "
 	exit 1
+
+
+}
+
+if [[ $# == 0 ]]; then
+	usage
 fi
 
+
+MODIFIER="$1"
+
+[[ -z $BITS ]] && BITS=64
+
+
 case "$MODIFIER" in
+	--help|-h) usage;;
+
 	"%d") shift; a="$@"; python -c "print(int($a))";;
 	"%x") shift; a="$@"; python -c "print(hex($a))";;
 	"%o") shift; a="$@"; python -c "print(oct($a))";;
