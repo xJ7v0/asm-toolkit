@@ -1,0 +1,15 @@
+#!/bin/bash
+
+type=$1
+
+mkdir -p /tmp/sizeof
+
+gcc -x c -o /tmp/sizeof/sizeof - <<EOF
+#include <stdio.h>
+int main() {
+	printf("sizeof $type: %zu \n", sizeof($type));
+	return 0;
+}
+EOF
+
+/tmp/sizeof/sizeof
