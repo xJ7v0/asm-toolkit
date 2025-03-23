@@ -1,11 +1,35 @@
 #!/bin/bash
+usage()
+{
+	echo "$(basename $0): sizeof() calculator using gcc
 
-type=$1
+Example:
+	sizeof int
+	sizeof \"unsigned int\"
+	sizeof \"#include <sys/stat.h>\" \"struct stat\"
+
+Just make sure to quote strings with quotes for it to process properly
+"
+exit 0
+}
+
+[[ $# == 0 ]] && usage
+
 
 mkdir -p /tmp/sizeof
 
-gcc -x c -o /tmp/sizeof/sizeof - <<EOF
+for arg in "$@"; do
+	case $@ in
+		"#include"*) includes+="$1"; includes+=$'\n'; shift 1;;
+		*) break;;
+	esac
+done
+type="$1"
+
+${CROSS_COMPILE}gcc -x c -o /tmp/sizeof/sizeof - <<EOF
 #include <stdio.h>
+$includes
+
 int main() {
 	printf("sizeof $type: %zu \n", sizeof($type));
 	return 0;
