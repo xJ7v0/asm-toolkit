@@ -17,7 +17,6 @@ floor()
 	echo $floor_val
 }
 
-
 magic_division_number()
 {
 	delta=0
@@ -120,14 +119,48 @@ Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %htoa print hex to ascii
 "
 	exit 1
+}
 
+usage_sizeof()
+{
+	echo "$(basename $0) %so: sizeof() calculator using gcc
+
+Example:
+	sizeof int
+	sizeof \"unsigned int\"
+	sizeof \"#include <sys/stat.h>\" \"struct stat\"
+
+Just make sure to quote strings with quotes for it to process properly
+"
+	exit 0
+}
+
+sizeof()
+{
+	mkdir -p /tmp/sizeof
+
+	for arg in "$@"; do
+		case $@ in
+			"#include"*) includes+="$1"; includes+=$'\n'; shift 1;;
+			*) break;;
+		esac
+	done
+	type="$1"
+
+	${CROSS_COMPILE}gcc -x c -o /tmp/sizeof/sizeof - <<EOF
+#include <stdio.h>
+$includes
+int main() { printf("sizeof $type: %zu \n", sizeof($type)); return 0; }
+
+EOF
+
+	/tmp/sizeof/sizeof
+	rm -f /tmp/sizeof/sizeof
 
 }
 
-if [[ $# == 0 ]]; then
-	usage
-fi
 
+ [[ $# == 0 ]] && usage
 
 MODIFIER="$1"
 
@@ -149,6 +182,8 @@ case "$MODIFIER" in
 
 	"%atoh") shift; a="$@"; atoh "$a";;
 	"%htoa") shift; a="$@"; htoa `python -c "print(hex($a))"`;;
+
+	"%so") [[ $# == 1 ]] && usage_sizeof || shift 1; sizeof "$@";;
 
 	*) a="$@"; python -c "print(f'{int($a)}	{hex($a)}	{oct($a)}	{bin($a)}')";;
 esac
