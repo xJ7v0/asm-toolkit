@@ -1,0 +1,43 @@
+#!/bin/bash
+DIR="/usr/include/asm/"
+#if [ ! -f ${DIR}/unistd_32.h ] || [ ! -f ${DIR}/unistd_64.h ]; then
+#
+#	if [ $(id -u) != 0 ]; then
+#		[ ! -d ~/.cache ] && mkdir -p ~/.cache
+#		DIR="${HOME}/.cache"
+#		[ ! -f ${DIR}/unistd_32.h ] && wget -cP ${DIR} "https://raw.githubusercontent.com/torvalds/linux/master/arch/sh/include/uapi/asm/unistd_32.h"
+#		[ ! -f ${DIR}/unistd_64.h ] && wget -cP ${DIR} "https://raw.githubusercontent.com/torvalds/linux/master/arch/sh/include/uapi/asm/unistd_64.h"
+#	fi
+#
+#fi
+
+usage()
+{
+echo "Usage: ${0##*/} [EXECUTABLE...]
+"
+
+exit 1
+}
+
+get_syscalls()
+{
+	syscall_list="$(strace $1 2>&1 | cut -d '(' -f1 | sort -u | egrep -vi '\+|=|)')"
+
+	bin=$(readlink "$(which $1)")
+
+	[ -z "$bin" ] && bin="$(which $1)"
+
+	echo -n $bin " "
+
+	bits="$(file $bin | cut -d '-' -f1 | grep -o '32' || file $bin | cut -d '-' -f1 | grep -o '64')"
+
+	for calls in $syscall_list; do
+		grep \#define ${DIR}/unistd_${bits}.h | cut -d _ -f 4- | awk '{$1=$1}{ print }' | egrep "^${calls} " | cut -d ' ' -f2 | tr '\n' ' '
+	done
+
+	echo
+}
+
+[[ $# == 0 ]] && usage
+
+for i in $@;do get_syscalls "$i";done
