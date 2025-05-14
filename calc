@@ -112,6 +112,9 @@ Usage: $(basename $0) [%d,%x,%o,%b] [expression]
     %sb   print result in signed binary
     %sx   print result in signed hexadecimal
 
+    %fb   print result and convert from float to binary
+    %bf   print result and convert from binary to float
+
     %ms   print magic number for fast signed division
     %mu   print magic number for fast unsigned division
 
@@ -177,6 +180,9 @@ case "$MODIFIER" in
 	"%sx")shift; a="$@"; python -c "print(hex(((1 << $BITS)-1) & $a))";;
 	"%sb")shift; a="$@"; python -c "print(bin(((1 << $BITS)-1) & $a))";;
 
+	"%fb") shift; a="$@"; python -c "import struct; print(format(struct.unpack('>I', struct.pack('>f', float($a)))[0], '032b'))";;
+	"%bf") shift; a="$@"; python -c "import struct; print(struct.unpack('>f', bytes.fromhex(hex(int('$a', 2))[2:].zfill(8)))[0])";;
+
 	"%ms") shift; a="$@"; magic_division_number `python -c "print(int($a))"`;;
 	"%mu") shift; a="$@"; magic_division_number `python -c "print(int($a))"` unsigned;;
 
@@ -185,7 +191,7 @@ case "$MODIFIER" in
 
 	"%so") [[ $# == 1 ]] && usage_sizeof || shift 1; sizeof "$@";;
 
-	*) a="$@"; python -c "print(f'{int($a)}	{hex($a)}	{oct($a)}	{bin($a)}')";;
+	*) a="$@";[[ $# == 1 ]] && python -c "print(f'{int($a)}	{hex($a)}	{oct($a)}	{bin($a)}')" || usage;;
 esac
 
 exit $?
